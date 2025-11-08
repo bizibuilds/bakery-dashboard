@@ -2,4 +2,4 @@ psycopg2-binary
 pandas
 openpyxl
 reportlab
-schedule
+schedule# bakery-dashboard
