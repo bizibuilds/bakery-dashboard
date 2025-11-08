@@ -5,12 +5,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Optional import — wrapped safely for PostgreSQL
-try:
-    import psycopg2
-except ImportError:
-    psycopg2 = None
-
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Bakery Sales Dashboard", page_icon="🍞", layout="wide")
 
@@ -20,38 +14,13 @@ st.markdown("Visualizing daily performance from the bakery sales database or CSV
 # --- LOAD DATA FUNCTION ---
 @st.cache_data
 def load_data():
-    """
-    Loads data either from PostgreSQL (if psycopg2 is available and credentials exist)
-    or from a local CSV file as a fallback.
-    """
+
     data = pd.DataFrame()
-    db_connected = False
-
-    # Attempt to connect to PostgreSQL if psycopg2 is available
-    if psycopg2 is not None:
-        try:
-            con = psycopg2.connect(
-                host=st.secrets["postgres"]["host"],
-                port=st.secrets["postgres"]["port"],
-                database=st.secrets["postgres"]["database"],
-                user=st.secrets["postgres"]["user"],
-                password=st.secrets["postgres"]["password"]
-            )
-            query = "SELECT * FROM sales"
-            data = pd.read_sql_query(query, con)
-            con.close()
-            db_connected = True
-            st.success("✅ Connected to PostgreSQL database.")
-        except Exception as e:
-            st.warning(f"⚠️ Database connection failed: {e}")
-
-    # Fallback: Load from local CSV
-    if not db_connected:
-        try:
-            data = pd.read_csv("cleaned_bakery_sales.csv")
-            st.info("📁 Loaded data from local CSV file (backup mode).")
-        except Exception as e:
-            st.error(f"❌ Unable to load data: {e}")
+    try:
+        data = pd.read_csv("cleaned_bakery_sales.csv")
+        st.info("📁 Loaded data from local CSV file (backup mode).")
+    except Exception as e:
+        st.error(f"❌ Unable to load data: {e}")
 
     return data
 
