@@ -1,43 +1,70 @@
-# 🎂 Day 20 — Streamlit Dashboard
+# 🎂 Day 20 — Streamlit Dashboard (Optimized for Streamlit Cloud)
 
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# Optional import — wrapped safely for PostgreSQL
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
+
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Bakery Sales Dashboard", page_icon="🍞", layout="wide")
 
 st.title("🍰 Bakery Sales Dashboard")
-st.markdown("Visualizing daily performance from the bakery sales database.")
+st.markdown("Visualizing daily performance from the bakery sales database or CSV backup.")
 
-# --- DATABASE CONNECTION ---
+# --- LOAD DATA FUNCTION ---
 @st.cache_data
 def load_data():
-    try:
-        con = psycopg2.connect(
-            host="postgres.qict.org",
-            port="5432",
-            database="bakery_db",
-            user="postgres",
-            password="Quanfey"
-        )
-        query = "SELECT * FROM sales"
-        data = pd.read_sql_query(query, con)
-        con.close()
-        return data
-    except Exception as e:
-        st.error(f"Database error: {e}")
-        return pd.DataFrame()
+    """
+    Loads data either from PostgreSQL (if psycopg2 is available and credentials exist)
+    or from a local CSV file as a fallback.
+    """
+    data = pd.DataFrame()
+    db_connected = False
+
+    # Attempt to connect to PostgreSQL if psycopg2 is available
+    if psycopg2 is not None:
+        try:
+            con = psycopg2.connect(
+                host=st.secrets["postgres"]["host"],
+                port=st.secrets["postgres"]["port"],
+                database=st.secrets["postgres"]["database"],
+                user=st.secrets["postgres"]["user"],
+                password=st.secrets["postgres"]["password"]
+            )
+            query = "SELECT * FROM sales"
+            data = pd.read_sql_query(query, con)
+            con.close()
+            db_connected = True
+            st.success("✅ Connected to PostgreSQL database.")
+        except Exception as e:
+            st.warning(f"⚠️ Database connection failed: {e}")
+
+    # Fallback: Load from local CSV
+    if not db_connected:
+        try:
+            data = pd.read_csv("cleaned_bakery_sales.csv")
+            st.info("📁 Loaded data from local CSV file (backup mode).")
+        except Exception as e:
+            st.error(f"❌ Unable to load data: {e}")
+
+    return data
+
 
 # --- LOAD DATA ---
 data = load_data()
 
 if not data.empty:
+    # --- CALCULATIONS ---
     data["revenue"] = data["units_sold"] * data["unit_price"]
     data["profit"] = (data["unit_price"] - data["cost_per_unit"]) * data["units_sold"]
 
-    # --- FILTER SIDEBAR ---
+    # --- SIDEBAR FILTERS ---
     st.sidebar.header("Filters")
     city = st.sidebar.multiselect("Select City", options=data["city"].unique(), default=data["city"].unique())
     product = st.sidebar.multiselect("Select Product", options=data["product"].unique(), default=data["product"].unique())
@@ -64,6 +91,7 @@ if not data.empty:
         city_rev = df_filtered.groupby("city")["revenue"].sum().reset_index()
         fig, ax = plt.subplots()
         sns.barplot(x="city", y="revenue", data=city_rev, palette="magma", ax=ax)
+        ax.set_ylabel("Revenue ($)")
         st.pyplot(fig)
 
     with col2:
@@ -71,22 +99,19 @@ if not data.empty:
         prod_profit = df_filtered.groupby("product")["profit"].sum().reset_index()
         fig, ax = plt.subplots()
         sns.barplot(x="product", y="profit", data=prod_profit, palette="crest", ax=ax)
+        ax.set_ylabel("Profit ($)")
         st.pyplot(fig)
 
     st.markdown("---")
 
-    # --- TABLE ---
+    # --- DATA TABLE ---
     st.subheader("Detailed Sales Data")
     st.dataframe(df_filtered)
 
 else:
-    st.warning("⚠️ No data available. Check your connection or CSV file.")
+    st.warning("⚠️ No data available. Check database connection or ensure 'cleaned_bakery_sales.csv' exists.")
 
-# Mini Quiz Answer
-# 1. For Interactive Data Visualization
-# 2. Caching Computations and Data Loading
-# 3. streamlit run file_name.py
-# 4. Multiselect options for dynamic filtering
 
-# Summary
-# Sylhet earn more revenue than Chittagong, Croissant is a most profitable product
+# --- FOOTER ---
+st.markdown("---")
+st.caption("👩‍💻 Built by Bizi Builds | Data Analytics Course — Day 20 | Powered by Streamlit 🌐")
