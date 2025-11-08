@@ -1,5 +1,0 @@
-psycopg2-binary
-pandas
-openpyxl
-reportlab
-schedule# bakery-dashboard
